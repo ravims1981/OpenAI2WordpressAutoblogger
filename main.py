@@ -102,7 +102,7 @@ if __name__ == '__main__':
             try:
                 wachawannado = int(input(mainmenu))
             except ValueError:
-                print('\nPardon my profanity but you need to enter a fucking number')
+                print('\nPlease enter a number')
                 continue
             if wachawannado == 1: #Article to file
                 wachawannadonow = int(input(a2menu))
