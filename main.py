@@ -145,10 +145,14 @@ if __name__ == '__main__':
                     post2wp(q=input(singleq), i=1, flag = True, content = '')
                 elif wachawannadonow == 2: #a2wp file
                     if os.path.exists('q.txt'):
-                        with open('q.txt', 'r') as f:
-                            with ProcessPoolExecutor(max_workers=16) as executor:
-                                for i, line in enumerate(f):
-                                    executor.submit(post2wp, q=line, i=i, flag = True, content = '')
+                        if not os.stat("file").st_size == 0:
+                            with open('q.txt', 'r') as f:
+                                with ProcessPoolExecutor(max_workers=16) as executor:
+                                    for i, line in enumerate(f):
+                                        executor.submit(post2wp, q=line, i=i, flag = True, content = '')
+                        else:
+                            print('\nq.txt is empty')
+                            continue
                     else:
                         print("Can't find q.txt")
                         continue
