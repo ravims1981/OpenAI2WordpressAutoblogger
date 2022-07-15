@@ -1,21 +1,23 @@
-import os,openai, requests
+import os,openai, requests, random
 from concurrent.futures import ProcessPoolExecutor
 
-# OpenAI Tweaks
-aitemperature = 0.7
-maxtokens = 100
 '''OpenAI Key goes within the quotes'''
 openai_key = 'Key Here'
-
-'''Paths. Change these only if you know wtf you're doing'''
-generated_content = 'new_content_files/'
-uploaded_content = 'content_uploaded_to_wp/'
 
 # WP
 wordpress_domain = '' ##DO NOT INCLUDE HTTPS OR WWW OR ANY TRAILING SLASHES. ONLY ENTER domainname.tld
 wordpress_username = ''
 wordpress_application_password = ''
+
 wordpress_post_status = 'draft'
+
+# OpenAI Tweaks
+aiTemperature = 0.7
+maxTokens = 100
+
+'''Paths. Change these only if you know wtf you're doing'''
+generated_content = 'new_content_files/'
+uploaded_content = 'content_uploaded_to_wp/'
 
 # Menu Items
 singleq = ('''OpenAI is a bitch. Please format your questions clearly. 
@@ -42,14 +44,15 @@ singleq = ('''OpenAI is a bitch. Please format your questions clearly.
         So, type in your question accordingly: ''')
 
 mainmenu = '''
-        Howdy!
+    Howdy!
 
-            Hit 
-                1: Generate Articles and write them to file
-                2: Generate Articles and post them to Wordpress
-                3: Read Articles from file and post them to Wordpress
+        Hit 
+            1: Generate Articles and write them to file
+            2: Generate Articles and post them to Wordpress
+            3: Read Articles from file and post them to Wordpress
+            4: Quit
 
-            Wachawannado? : '''
+        Wachawannado? : '''
 
 a2menu = '''
         1: Imput single question here
@@ -62,8 +65,8 @@ a2menu = '''
 def post2wp(q, i, flag, content):
     if flag:
         openai.api_key = openai_key
-        content = openai.Completion.create(model="text-davinci-002", prompt=q, temperature=aitemperature,
-                                            max_tokens=maxtokens)["choices"][0]["text"]
+        content = openai.Completion.create(model="text-davinci-002", prompt=q, temperature=aiTemperature,
+                                           max_tokens=maxTokens)["choices"][0]["text"]
 
     cred = f'{wordpress_username}:{wordpress_application_password}'
     tkn = base64.b64encode(cred.encode())
@@ -76,15 +79,18 @@ def post2wp(q, i, flag, content):
     }
     print(content)
     wp_response = requests.post(url=api_url,headers=wpheader, json=data)
-    print(i, wp_response)
+    print(f'Item no. {i+1} posted, with title{q} and post content \n\n {content} \n\n {wp_response})
 
 
 def article2file(q,i):
     openai.api_key = openai_key
-    response = openai.Completion.create(model="text-davinci-002", prompt=q, temperature=aitemperature,
-                                        max_tokens=maxtokens)["choices"][0]["text"]
+    response = openai.Completion.create(model="text-davinci-002", prompt=q, temperature=aiTemperature,
+                                        max_tokens=maxTokens)["choices"][0]["text"]
     fname = q.replace(' ', '_') + '.txt'
-    with open(fname, 'w') as f:
+    if os.path.exists(generated_content+fname):
+        print('File with title already exists, renaming it with a random number prefix')
+        os.replace(generated_content+fname,generated_content+str(random.randint(1000,9999))+fname)
+    with open(generated_content+fname, 'w') as f:
         f.write(response)
         print(f'Item: {i} in list done.\nQuery string: {q}\nArticle:\n{response}\n\nSaved to {fname}')
 
@@ -105,44 +111,65 @@ if __name__ == '__main__':
                 print('\nPlease enter a number')
                 continue
             if wachawannado == 1: #Article to file
-                wachawannadonow = int(input(a2menu))
+                try:
+                    wachawannadonow = int(input(a2menu))
+                except ValueError:
+                    print('\nPlease enter a number')
+                    continue
                 if wachawannadonow == 1: #a2f single
                     article2file(q=input(singleq), i=1)
 
                 elif wachawannadonow == 2: #a2f file
                     if os.path.exists('q.txt'):
-                        with open('q.txt', 'r') as f:
-                            with ProcessPoolExecutor(max_workers=16) as executor:
-                                for i, line in enumerate(f):
-                                    executor.submit(article2file, i=i, q=line)
+                        if not os.stat("file").st_size == 0:
+                            with open('q.txt', 'r') as f:
+                                with ProcessPoolExecutor(max_workers=16) as executor:
+                                    for i, line in enumerate(f):
+                                        executor.submit(article2file, i=i, q=line)
+                        else:
+                            print('\nq.txt is empty')
+                            continue
                     else:
                         print("Can't find q.txt")
                         continue
                 else:
                     continue
 
-            if wachawannado == 2: #Article to Wordpress
-                wachawannadonow = int(input(a2menu))
+            elif wachawannado == 2: #Article to Wordpress
+                try:
+                    wachawannadonow = int(input(a2menu))
+                except ValueError:
+                    print('\nPlease enter a number')
+                    continue
                 if wachawannadonow == 1: #a2wp single
-                    post2wp(q=input(singleq), i=1, flag = True)
+                    post2wp(q=input(singleq), i=1, flag = True, content = '')
                 elif wachawannadonow == 2: #a2wp file
                     if os.path.exists('q.txt'):
                         with open('q.txt', 'r') as f:
                             with ProcessPoolExecutor(max_workers=16) as executor:
                                 for i, line in enumerate(f):
-                                    executor.submit(post2wp, q=line, i=i, flag = True)
+                                    executor.submit(post2wp, q=line, i=i, flag = True, content = '')
                     else:
                         print("Can't find q.txt")
                         continue
                 else:
                     continue
-            if wachawannado == 3: #Files to WP
+            elif wachawannado == 3: #Files to WP
                 contentfiles = os.listdir(generated_content)
                 if contentfiles:
                     with ProcessPoolExecutor(max_workers=16) as executor:
                         for i, file in enumerate(contentfiles):
-                            with open(generated_content+file,'r') as f:
-                                executor.submit(post2wp, flag = False, content = f.read(), q = file.replace('_', '').replace('.txt',''), i=i)
-
+                            if file.endswith('.txt'):
+                                print('Posting from file:', file)
+                                with open(generated_content+file,'r') as f:
+                                    executor.submit(post2wp, flag = False, content = f.read(), q = file.replace('_', '').replace('.txt',''), i=i)
+                                os.replace(generated_content+file, uploaded_content+file)
+                else:
+                    print('Generated Content folder is empty')
+            elif wachawannado == 4:
+                print('Bye!')
+                break
+            else:
+                print('Invalid Choice, try that again')
     except KeyboardInterrupt:
         print('Bye!')
