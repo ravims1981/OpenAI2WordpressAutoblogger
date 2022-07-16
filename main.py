@@ -1,4 +1,4 @@
-import os,openai, requests, random
+import os,openai, requests, random, base64
 from concurrent.futures import ProcessPoolExecutor
 
 '''OpenAI Key goes within the quotes'''
